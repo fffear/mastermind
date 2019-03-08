@@ -12,7 +12,6 @@ class Game
   attr_reader :colors, :color_strings, :human_player, :computer_player
   def initialize(human_player, computer_player)
     @colors = %w{red orange yellow green indigo blue}
-    #@colors = {red: "r", orange: "o", yellow: "y", green: "g", indigo: "i", blue: "b"}
     @human_player = HumanPlayer.new(human_player)
     @computer_player = ComputerPlayer.new(computer_player)
     @players = {}
@@ -55,17 +54,19 @@ class Game
       guess_code_prompt
     end
     
-    self.computer_player.correct_combination = []
+    self.computer_player.incorrect_letter_placing.clear
+    self.computer_player.test_letter.clear
+    self.computer_player.correct_combination.clear
     self.prompt_restart_game
   end
 
   def guess_code_prompt
-    (1..12).each do
+    (1..12).each do |attempt|
       print "Please guess the 4 color code by entering the 1st letter of the color you are guessing."
       print " (eg. 'rgyb' to guess 'red, green, yellow, blue')\n"
       print "The available colors are: "
       print_color_with_first_letter_brackets
-      puts "You have 12 attempts."
+      puts "You have #{12 - attempt} attempts."
 
       if self.human_player.role == "set_code"
         @guess_code = self.computer_player.guess_code
@@ -85,25 +86,29 @@ class Game
   def compare_guess_to_code
     guess_code = @guess_code.split("")
     code = (self.human_player.role == "guess_code") ? self.computer_player.code.split("") : self.human_player.code.split("")
-
-    #if @guess_code == code.join("")
-    #  puts "You have guessed the winning code!"
-    #  return
-    #end
     
     i = 0
     guess_code.each do |letter|
       case
       when letter == code[i]
         self.computer_player.correct_combination[i] = letter
+        self.computer_player.test_letter.reject! { |l| l == letter } #if self.computer_player.test_letter[0] == letter
+        self.computer_player.incorrect_letter_placing.map! { |l| l == letter ? nil : l }
         print letter.green
       when letter != code[i] && code.any? { |l| l == letter }
-        print letter
+        if self.computer_player.correct_combination.any? { |l| l == letter } && code.count(letter) == self.computer_player.correct_combination.count(letter)
+          print letter.red
+          self.computer_player.test_letter.shift if self.computer_player.test_letter[0] == letter
+          #self.computer_player.test_letter.reject! { |l| l == letter }
+          # put code here
+        else
+          self.computer_player.incorrect_letter_placing[i] = letter
+          self.computer_player.test_letter.push(letter)
+          print letter
+        end
       else 
         print letter.red
       end
-      #print (letter == code[i]) ? letter.green :
-      #     (letter != code[i] && code.any? { |l| l == letter }) ? letter : letter.red
       i += 1
       puts "" if i == 4
     end
@@ -114,6 +119,8 @@ class Game
     end
 
     p self.computer_player.correct_combination
+    p self.computer_player.incorrect_letter_placing
+    p self.computer_player.test_letter
   end
 
   def prompt_restart_game
@@ -182,10 +189,12 @@ end
 class HumanPlayer < Player; end
 
 class ComputerPlayer < Player
-  attr_accessor :correct_combination
+  attr_accessor :correct_combination, :incorrect_letter_placing, :test_letter
   def initialize(name)
     super
     @correct_combination = []
+    @incorrect_letter_placing = []
+    @test_letter = []
   end
 
   def set_code
@@ -203,6 +212,14 @@ class ComputerPlayer < Player
     (0..3).each do |n|
       if self.correct_combination[n] != nil
         comp_guess_code += self.correct_combination[n]
+      elsif self.incorrect_letter_placing[n] != self.test_letter[0] && self.incorrect_letter_placing.length > 0
+
+        if self.test_letter.length > 0 && self.test_letter.any? { |l| l != nil }
+          comp_guess_code += self.test_letter[0]
+        else
+          random_number = rand(0..5)
+          comp_guess_code += @colors[random_number][0]
+        end
       else
         random_number = rand(0..5)
         comp_guess_code += @colors[random_number][0]
