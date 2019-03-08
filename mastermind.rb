@@ -9,12 +9,12 @@ class String
 end
 
 class Game
-  attr_reader :colors, :color_strings
+  attr_reader :colors, :color_strings, :human_player, :computer_player
   def initialize(human_player, computer_player)
     @colors = %w{red orange yellow green indigo blue}
     #@colors = {red: "r", orange: "o", yellow: "y", green: "g", indigo: "i", blue: "b"}
-    @human_player = Player.new(human_player, "guess_code")
-    @computer_player = Player.new(computer_player, "set_code")
+    @human_player = HumanPlayer.new(human_player)
+    @computer_player = ComputerPlayer.new(computer_player)
     @players = {}
     @players[:human_player] = {name: human_player, role: @human_player.role}
     @players[:computer_player] = {name: computer_player, role: @computer_player.role}
@@ -31,50 +31,89 @@ class Game
   end
 
   def computer_set_code
-    @code = ""
-    (1..4).each do
-      random_number = rand(0..5)
-      @code += @colors[random_number][0]
-    end
-    puts "The computer has generated the 4 color code."
-    puts @code
+    self.computer_player.set_code
   end
 
   def play
     self.introduction
-    self.computer_set_code
+    puts "Do you want to guess or set the code? (g/s)"
+    role = gets.chomp.downcase
+    if role == "g"
+      self.human_player.role = "guess_code"
+      self.computer_player.role = "set_code"
+    else
+      self.human_player.role = "set_code"
+      self.computer_player.role = "guess_code"
+    end
 
+    if self.human_player.role == "guess_code"
+      self.computer_set_code
+      guess_code_prompt
+    else
+      puts "Please set the 4 color code:"
+      self.human_player.code = gets.chomp
+      guess_code_prompt
+    end
+    
+    self.computer_player.correct_combination = []
+    self.prompt_restart_game
+  end
+
+  def guess_code_prompt
     (1..12).each do
       print "Please guess the 4 color code by entering the 1st letter of the color you are guessing."
       print " (eg. 'rgyb' to guess 'red, green, yellow, blue')\n"
       print "The available colors are: "
       print_color_with_first_letter_brackets
       puts "You have 12 attempts."
-      @guess_code = gets.chomp
+
+      if self.human_player.role == "set_code"
+        @guess_code = self.computer_player.guess_code
+      else
+        @guess_code = gets.chomp
+      end
 
       compare_guess_to_code
-      break if @guess_code == @code
-    end
 
-    self.prompt_restart_game
+      case
+      when self.human_player.role == "guess_code" then break if @guess_code == self.computer_player.code
+      when self.human_player.role == "set_code" then break if @guess_code == self.human_player.code
+      end
+    end
   end
 
   def compare_guess_to_code
     guess_code = @guess_code.split("")
-    code = @code.split("")
+    code = (self.human_player.role == "guess_code") ? self.computer_player.code.split("") : self.human_player.code.split("")
 
-    if @guess_code == @code
-      puts "You have guessed the winning code!"
-      return
-    end
+    #if @guess_code == code.join("")
+    #  puts "You have guessed the winning code!"
+    #  return
+    #end
     
     i = 0
     guess_code.each do |letter|
-      print (letter == code[i]) ? letter.green :
-            (letter != code[i] && code.any? { |l| l == letter }) ? letter : letter.red
+      case
+      when letter == code[i]
+        self.computer_player.correct_combination[i] = letter
+        print letter.green
+      when letter != code[i] && code.any? { |l| l == letter }
+        print letter
+      else 
+        print letter.red
+      end
+      #print (letter == code[i]) ? letter.green :
+      #     (letter != code[i] && code.any? { |l| l == letter }) ? letter : letter.red
       i += 1
       puts "" if i == 4
     end
+
+    if @guess_code == code.join("")
+      puts "You have guessed the winning code!"
+      return
+    end
+
+    p self.computer_player.correct_combination
   end
 
   def prompt_restart_game
@@ -127,18 +166,53 @@ class Game
 end
 
 class Player
-  attr_reader :name
-  def initialize(name, role)
+  attr_reader :name, :code
+  attr_accessor :role
+  def initialize(name)
     @name = name
-    @role = role
+    #@role = role
+    @colors = %w{red orange yellow green indigo blue}
   end
 
-  def name
-    @name
+  def code=(create_code)
+    @code = create_code
+  end
+end
+
+class HumanPlayer < Player; end
+
+class ComputerPlayer < Player
+  attr_accessor :correct_combination
+  def initialize(name)
+    super
+    @correct_combination = []
   end
 
-  def role
-    @role
+  def set_code
+    @code = ""
+    (1..4).each do
+      random_number = rand(0..5)
+      @code += @colors[random_number][0]
+    end
+    puts "The computer has generated the 4 color code."
+    puts @code
+  end
+
+  def guess_code
+    comp_guess_code = ""
+    (0..3).each do |n|
+      if self.correct_combination[n] != nil
+        comp_guess_code += self.correct_combination[n]
+      else
+        random_number = rand(0..5)
+        comp_guess_code += @colors[random_number][0]
+      end
+    end
+    puts "The computer has guessed a code combination."
+    #if
+    #end
+    puts comp_guess_code
+    comp_guess_code
   end
 end
 
