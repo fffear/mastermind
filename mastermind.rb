@@ -1,3 +1,5 @@
+require "./player.rb"
+
 class String
   def red
     "\e[31m#{self}\e[0m"
@@ -32,81 +34,76 @@ class Game
 
   def play
     self.introduction
+    choose_to_create_or_guess_code
+
+    if self.human_player.role == "guess_code"
+      computer_set_code
+      guess_code_prompt
+    else
+      human_player_create_code
+      guess_code_prompt
+    end
+    
+    reset_game_conditions
+    self.prompt_restart_game
+  end
+
+  def choose_to_create_or_guess_code
     loop do
       puts "Do you want to guess or set the code? (g/s)"
       role = gets.chomp.downcase
 
-      case role
-      when "g"
-        self.human_player.role = "guess_code"
-        self.computer_player.role = "set_code"
-      when "s"
-        self.human_player.role = "set_code"
-        self.computer_player.role = "guess_code"
-      else
-        puts "You didn't choose to guess or set code. Please pick an option."
-      end
+      player_chose_guess_code if role == "g"
+      player_chose_create_code if role == "s"
+      puts "You didn't choose to guess or set code. Please pick an option." if ["g", "s"].none? { |letter| letter == role }
 
       break if ["g", "s"].any? { |letter| letter == role }
     end
+  end
 
-    if self.human_player.role == "guess_code"
-      self.computer_set_code
-      guess_code_prompt
-    else
-      loop do
-        puts "Please set the 4 color code:"
-        self.human_player.code = gets.chomp
-        colors_initial = self.computer_player.colors.map { |c| c[0] }
+  def player_chose_guess_code
+    self.human_player.role = "guess_code"
+    self.computer_player.role = "set_code"
+  end
 
-        if self.human_player.code.length == 4 && (self.human_player.code.split("") - colors_initial).length == 0
-          break 
-        else
-          puts "You have entered a color that is not available."
-        end
+  def player_chose_create_code
+    self.human_player.role = "set_code"
+    self.computer_player.role = "guess_code"
+  end
+
+  def human_player_create_code
+    loop do
+      puts "Please set the 4 color code:"
+      self.human_player.code = gets.chomp
+
+      case
+      when (self.human_player.code.length == 4 && illegal_colors.length == 0) then break
+      else puts "You have entered a color that is not available, or the code is either too short or too long."
       end
-      guess_code_prompt
-    end
-    
+    end 
+  end
+
+  def reset_game_conditions
     self.computer_player.colors = %w{red orange yellow green indigo blue}
     self.computer_player.diff_rand_color = %w{r o y g i b}
     self.computer_player.incorrect_letter_placing.clear
     self.computer_player.test_letter.clear
     self.computer_player.correct_combination.clear
-    self.prompt_restart_game
   end
 
   def guess_code_prompt
     (1..12).each do |attempt|
-      print "Please guess the 4 color code by entering the 1st letter of the color you are guessing."
-      print " (eg. 'rgyb' to guess 'red, green, yellow, blue')\n"
-      print "The available colors are: "
-      print_color_with_first_letter_brackets
+      guess_code_introduction
       puts (attempt < 12) ? "You have #{13 - attempt} attempts left." : "You have #{13 - attempt} attempt left."
 
-      if self.human_player.role == "set_code"
-        @guess_code = self.computer_player.guess_code
-      else
-        @guess_code = gets.chomp
-        self.human_player.code = @guess_code
-      end
-
+      (self.human_player.role == "set_code") ? @guess_code = self.computer_player.guess_code : @guess_code = gets.chomp
       compare_guess_to_code
 
-      if attempt == 12 && self.human_player.role == "set_code"       
-        puts "Computer wins!" if self.human_player.code == @guess_code
-        puts "Computer loses!" if self.human_player.code != @guess_code
-        puts "The code is: #{self.human_player.code}"
-      elsif attempt == 12 && self.computer_player.role == "set_code"
-        puts "Player wins!" if self.computer_player.code == @guess_code
-        puts "Player loses!" if self.computer_player.code != @guess_code
-        puts "The code is: #{self.computer_player.code}"
-      elsif attempt < 12 && self.human_player.role == "set_code"
-        puts "Computer wins!" if self.human_player.code == @guess_code
-        puts "The code is: #{self.human_player.code}" if self.human_player.code == @guess_code
-      elsif attempt < 12 && self.computer_player.role == "set_code"
-        puts "Player wins!" if self.computer_player.code == @guess_code   
-        puts "The code is: #{self.computer_player.code}" if self.computer_player.code == @guess_code
+      case
+      when attempt == 12 && self.human_player.role == "set_code" then computer_player_victory_or_defeat_message
+      when attempt == 12 && self.computer_player.role == "set_code" then human_player_victory_or_defeat_message
+      when attempt < 12 && self.human_player.role == "set_code" then computer_player_victory_message
+      when attempt < 12 && self.computer_player.role == "set_code" then human_player_victory_message
       end
 
       case
@@ -114,6 +111,35 @@ class Game
       when self.human_player.role == "set_code" then break if @guess_code == self.human_player.code
       end
     end
+  end
+
+  def guess_code_introduction
+    print "Please guess the 4 color code by entering the 1st letter of the color you are guessing."
+    print " (eg. 'rgyb' to guess 'red, green, yellow, blue')\n"
+    print "The available colors are: "
+    print_color_with_first_letter_brackets
+  end
+
+  def computer_player_victory_or_defeat_message
+    puts "Computer wins!" if self.human_player.code == @guess_code
+    puts "Computer loses!" if self.human_player.code != @guess_code
+    puts "The code is: #{self.human_player.code}"
+  end
+
+  def human_player_victory_or_defeat_message
+    puts "Player wins!" if self.computer_player.code == @guess_code
+    puts "Player loses!" if self.computer_player.code != @guess_code
+    puts "The code is: #{self.computer_player.code}"
+  end
+
+  def computer_player_victory_message
+    puts "Computer wins!" if self.human_player.code == @guess_code
+    puts "The code is: #{self.human_player.code}" if self.human_player.code == @guess_code
+  end
+
+  def human_player_victory_message
+    puts "Player wins!" if self.computer_player.code == @guess_code   
+    puts "The code is: #{self.computer_player.code}" if self.computer_player.code == @guess_code
   end
 
   def compare_guess_to_code
@@ -188,8 +214,8 @@ class Game
     self.play
   end
 
-  def colors_first_letter
-    @colors_first_letter = @colors.map { |color| color[0] }
+  def colors_initials
+    @colors_initials = @colors.map { |color| color[0] }
   end
 
   def covert_colors_to_strings_with_first_letter_brackets
@@ -203,6 +229,10 @@ class Game
     end
   end
 
+  def illegal_colors
+    self.human_player.code.split("") - colors_initials
+  end
+
   def human_player
     @human_player
   end
@@ -213,63 +243,6 @@ class Game
 
   def players
     @players
-  end
-end
-
-class Player
-  attr_reader :name, :code
-  attr_accessor :role, :colors
-  def initialize(name)
-    @name = name
-    @colors = %w{red orange yellow green indigo blue}
-  end
-
-  def code=(create_code)
-    @code = create_code
-  end
-end
-
-class HumanPlayer < Player; end
-
-class ComputerPlayer < Player
-  attr_accessor :correct_combination, :incorrect_letter_placing, :test_letter, :diff_rand_color
-  def initialize(name)
-    super
-    @correct_combination = []
-    @incorrect_letter_placing = []
-    @test_letter = []
-    @diff_rand_color = %w{r o y g i b}
-  end
-
-  def set_code
-    @code = ""
-    (1..4).each do
-      random_number = rand(0..5)
-      @code += @colors[random_number][0]
-    end
-    puts "The computer has generated the 4 color code."
-    #puts @code
-  end
-
-  def guess_code
-    comp_guess_code = ""
-    (0..3).each do |n|
-      if self.correct_combination[n] != nil
-        comp_guess_code += self.correct_combination[n]
-      elsif self.incorrect_letter_placing[n] != self.test_letter[0] && self.test_letter.empty? == false
-        comp_guess_code += self.test_letter[0]
-      elsif self.incorrect_letter_placing[n] == self.test_letter[0] && self.test_letter.empty? == false
-        self.diff_rand_color -= [self.test_letter[0]]
-        comp_guess_code += self.diff_rand_color.sample[0]
-      else
-        comp_guess_code += self.colors[rand(self.colors.length)][0]
-      end
-    end
-
-    puts "The computer has guessed a code combination."
-    
-    puts comp_guess_code
-    comp_guess_code
   end
 end
 
