@@ -87,7 +87,7 @@ class Mastermind
 
   def restart_game
     loop do
-      puts "Do you want to play again?"
+      puts "Do you want to play again? (y/n)"
       restart_game_answer = gets.chomp.upcase
   
       play if restart_game_answer == "Y" || restart_game_answer == "YES"
