@@ -72,8 +72,8 @@ class Mastermind
   end
 
   def play_as_guesser
-    puts "Computer Player has created a code:"
-    puts self.computer_player.create_code(code_length)
+    puts "Computer Player has created a code."
+    self.computer_player.create_code(code_length)
     display_color_options
     play_guess_rounds
   end

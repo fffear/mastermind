@@ -4,7 +4,7 @@ module GameDescription
             " ====================================\n".center(80)
           ]
 
-  INSTRUCTIONS = [ "Player's will have 12 chances to guess the correct sequence of colors.\n\n",
+  INSTRUCTIONS = [ "Player's will have a certain number of chances to guess the correct sequence of colors.\n\n",
                    "To guess the sequence of colors, enter the first letter of the color consecutively without any spaces.\n\n",
                    "The available colors are: \n\n"
                  ]
